@@ -131,7 +131,7 @@ def send_frame_to_push3(device, frame_data):
         device.write(0x01, chunk)
 ```
 
-## ⚡ Performance Analysis
+## Performance Analysis
 
 ### Transfer Timing
 - **Frame Preparation**: <1ms (image conversion + encryption)
@@ -170,7 +170,7 @@ def maintain_framerate(target_fps=30):
     # Natural frame rate limitation around 30-35 FPS
 ```
 
-## 🎨 Color Space & Conversion
+## Color Space & Conversion
 
 ### RGB888 to RGB565 Conversion
 ```python
@@ -212,7 +212,7 @@ def prepare_image_for_push3(image_path):
     return bytes(framebuffer)
 ```
 
-## 🔧 Implementation Example
+## Implementation Example
 
 ### Complete Display Controller
 ```python
@@ -255,19 +255,6 @@ class Push3Display:
             encrypted[i] ^= xor_pattern[i % 4]
         return bytes(encrypted)
 ```
-
-## Protocol Comparison: Push 2 vs Push 3
-
-| Feature | Push 2 | Push 3 | Improvement |
-|---------|---------|---------|-------------|
-| **Frame Header** | 16 bytes | 16 bytes | Identical |
-| **Resolution** | 960×160 | 960×160 | None |
-| **Color Format** | RGB565 | RGB565 | None |
-| **Frame Size** | 327,680 bytes | 327,680 bytes | None |
-| **Chunk Size** | 512 bytes | 16,384 bytes | 32x larger |
-| **Transfer Time** | 50-100ms | 20-30ms | 2-3x faster |
-| **Encryption** | Unknown | XOR pattern | Added security |
-| **USB Interface** | Bulk Transfer | Bulk Transfer | Optimized |
 
 ## Troubleshooting
 
