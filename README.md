@@ -13,7 +13,7 @@ This section contains comprehensive technical documentation of the Ableton Push 
 - **[Encoder Mapping](interface-mapping/encoders.md)** - 10 encoders with touch detection
 
 ### Research Tools
-- **[Research Tools](tools/README.md)** - Hardware testing and analysis scripts
+- **[Research Tools](tools)** - Hardware testing and analysis scripts
   - `display_test.py` - USB display testing with included test image
   - `midi_monitor.py` - Real-time MIDI message monitoring and analysis
   - `midi_test.py` - LED control and MIDI functionality testing  
