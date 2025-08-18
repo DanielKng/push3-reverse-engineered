@@ -168,7 +168,7 @@ Most encoders follow this pattern:
 - **Jog Wheel**: Both continuous (scroll) and discrete (nudge) modes
 - **Volume/Tempo**: Continuous rotation with wide range
 
-## 🔧 Technical Notes
+## Technical Notes
 
 ### MIDI Implementation
 - All encoders send CC messages on MIDI Channel 1
