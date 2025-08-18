@@ -1,17 +1,17 @@
-# Push 2 vs Push 3: Complete Protocol Comparison
+# Push 2 vs Push 3: Protocol Comparison
 
 Detailed technical comparison between Ableton Push 2 and Push 3 communication protocols, based on reverse engineering analysis and official Push 2 documentation.
 
-## 📊 Executive Summary
+## Executive Summary
 
 | Aspect | Push 2 | Push 3 | Compatibility | Improvement |
 |--------|---------|---------|---------------|-------------|
 | **USB Display** | 960×160 RGB565 | 960×160 RGB565 | Identical | Performance only |
 | **MIDI Protocol** | Documented SysEx | Same + Extensions | Full compatibility | Additional commands |
 | **Performance** | 50-100ms frames | 20-30ms frames | Same interface | 2-3x faster |
-| **Security** | Unknown encryption | XOR encryption | New requirement | Added security |
+| **Security** | None(?) | XOR encryption | New requirement | Added security |
 
-## 🖥️ USB Display Protocol Comparison
+## USB Display Protocol Comparison
 
 ### Frame Structure
 ```
@@ -43,15 +43,7 @@ FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
 | **Bandwidth** | ~3-6 MB/s | ~10-15 MB/s | **2-3x higher** |
 | **USB Standard** | USB 2.0 Bulk | USB 2.0 Bulk | Same |
 
-### Encryption Differences
-
-#### Push 2 Encryption
-```python
-# Push 2 encryption status: Unknown/Undocumented
-# May use same XOR pattern but not publicly documented
-```
-
-#### Push 3 Encryption
+### Push 3 Encryption
 ```python
 # Push 3 XOR Pattern (Confirmed)
 XOR_PATTERN = [0xE7, 0xF3, 0xE7, 0xFF]
@@ -62,8 +54,6 @@ def encrypt_push3_frame(data):
         encrypted[i] ^= XOR_PATTERN[i % 4]
     return bytes(encrypted)
 ```
-
-**Analysis**: Push 3 definitely uses XOR encryption. Push 2's encryption status unknown.
 
 ## MIDI Protocol Comparison
 
@@ -141,29 +131,14 @@ PAD_MAPPING = {
 }
 ```
 
-## 🔧 Hardware Differences
-
-### Physical Interface
-
-| Component | Push 2 | Push 3 | Changes |
-|-----------|---------|---------|---------|
-| **Pads** | 8×8 RGB, velocity | 8×8 RGB, velocity | Likely improved sensitivity |
-| **Encoders** | 8 + volume + tempo | 8 + volume + tempo | Enhanced touch detection |
-| **Buttons** | ~70 buttons | ~70 buttons | Same layout, improved tactile feel |
-| **Display** | 4.3" 960×160 | 4.3" 960×160 | Identical specifications |
-| **Build Quality** | Plastic/Metal | Enhanced materials | Improved durability |
-
 ### USB Hardware
 
 | Feature | Push 2 | Push 3 | Technical Difference |
 |---------|---------|---------|---------------------|
 | **Vendor ID** | `0x2982` | `0x2982` | Same (Ableton) |
 | **Product ID** | `0x1967` | `0x1969` | Incremented by 2 |
-| **USB Class** | Custom/Vendor | Custom/Vendor | Same approach |
-| **Endpoints** | Bulk Transfer | Bulk Transfer | Same interface |
-| **Power Draw** | ~500mA | ~500mA | Similar power requirements |
 
-## 🚀 Performance Analysis
+## Performance Analysis
 
 ### USB Transfer Optimization
 
@@ -194,7 +169,7 @@ PUSH3_TRANSFER_TIME = "20-30ms"
 | **Animation (30 FPS)** | Difficult | Achievable | Enables smooth animation |
 | **CPU Usage** | High (USB overhead) | Medium | Reduced system load |
 
-## 🔄 Migration Guidelines
+## Migration Guidelines
 
 ### From Push 2 to Push 3
 
@@ -267,7 +242,7 @@ class UniversalPushMIDI:
             return self._send_push2_command(command, data)
 ```
 
-## 📋 Development Recommendations
+## Recommendations
 
 ### For New Projects
 1. **Target Push 3** - Use optimized protocols for best performance
@@ -300,7 +275,7 @@ def optimize_for_device(device_type):
         }
 ```
 
-## 🎯 Conclusion
+## Conclusion
 
 ### Compatibility Assessment
 - **MIDI Protocol**: **Excellent** - Full backwards compatibility
@@ -311,5 +286,4 @@ def optimize_for_device(device_type):
 ### Key Takeaways
 1. **Push 3 is largely a performance upgrade** over Push 2
 2. **Existing Push 2 software can be easily adapted** for Push 3
-3. **New projects should target Push 3** for optimal performance
-4. **Cross-compatibility is achievable** with minimal effort
+3. **Cross-compatibility is achievable** with minimal effort
