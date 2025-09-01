@@ -17,7 +17,7 @@ This section contains comprehensive technical documentation of the Ableton Push 
   - `display_test.py` - USB display testing with included test image
   - `midi_monitor.py` - Real-time MIDI message monitoring and analysis
   - `midi_test.py` - LED control and MIDI functionality testing  
-  - `text_renderer.py` - Logic Pro-style parameter display generation
+  - `text_renderer.py` - Dynamic parameter display generation
 
 ## Key Findings Summary
 
