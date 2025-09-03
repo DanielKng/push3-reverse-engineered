@@ -1,16 +1,17 @@
-# Push 2 vs Push 3 – Pad Sensitivity Curve Documentation
+# Push 2 vs Push 3 - Pad Sensitivity Curve Documentation
 
 This document explains how **Ableton Push 2** and **Push 3** handle pad sensitivity curves via SysEx.
 It details the differences between the two devices, including message formats, UI parameters, and migration strategies.
 
-Most of this comparative analysis is based on Ableton’s official Push 2 documentation available on GitHub. Since I don’t own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
+Most of this comparative analysis is based on Ableton's official Push 2 documentation available on GitHub.
+Since I don't own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
 
 ---
 
 ## Overview
 
-Both devices use a **128-entry lookup table (LUT)** to map pad force readings to MIDI velocities (1–127).
-Each LUT entry is a single **7-bit value (0–127)**.
+Both devices use a **128-entry lookup table (LUT)** to map pad force readings to MIDI velocities (1-127).
+Each LUT entry is a single **7-bit value (0-127)**.
 
 | Concept            | Description                                                    |
 | ------------------ | -------------------------------------------------------------- |
@@ -23,26 +24,26 @@ Each LUT entry is a single **7-bit value (0–127)**.
 
 ## Executive Summary
 
-| Aspect           | Push 2                           | Push 3                                          | Compatibility             | Notes                                        |
-| ---------------- | -------------------------------- | ----------------------------------------------- | ------------------------- | -------------------------------------------- |
-| Curve Transport  | `0x20` – Per-entry SysEx message | `0x43` – Bulk SysEx (all 128 bytes)             | Identical LUT format      | Push 3 adds subheader + optional echo bytes  |
-| LUT Format       | 128 × 7-bit, monotonic + plateau | Same                                            | Full compatibility        |                                              |
-| Parameters (UI)  | Sensitivity, Gain, Dynamics      | Threshold, Drive, Compand, Range                | Maps 3 → 4                | Threshold is new in Push 3                   |
-| Backward Support | Only `0x20`                      | **Confirmed:** `0x43`**Unverified:** `0x20` | Safe to migrate to `0x43` | Don’t rely on `0x20` unless you’ve tested it |
+| Aspect           | Push 2                           | Push 3                                       | Compatibility             | Notes                                           |
+| ---------------- | -------------------------------- | -------------------------------------------- | ------------------------- | ----------------------------------------------- |
+| Curve Transport  | `0x20` - Per-entry SysEx message | `0x43` - Bulk SysEx (all 128 bytes)          | Identical LUT format      | Push 3 adds subheader + optional echo bytes     |
+| LUT Format       | 128 x 7-bit, monotonic + plateau | Same                                         | Full compatibility        |                                                 |
+| Parameters (UI)  | Sensitivity, Gain, Dynamics      | Threshold, Drive, Compand, Range             | Maps 3 -> 4               | Threshold is new in Push 3                      |
+| Backward Support | Only `0x20`                      | **Confirmed:** `0x43` **Unverified:** `0x20` | Safe to migrate to `0x43` | Do not rely on `0x20` unless you have tested it |
 
 ---
 
 ## SysEx Message Layouts
 
-### Push 2 – Per-entry Write (`0x20`)
+### Push 2 - Per-entry Write (`0x20`)
 
 Push 2 requires **128 separate messages**, one for each index.
 
 ```
 F0 00 21 1D            ; SysEx start + Ableton manufacturer ID
 01 01 20               ; Device family + CMD 0x20 (Pad Velocity Curve)
-<index>                ; Index: 0–127
-<value>                ; Value: 0–127 (7-bit)
+<index>                ; Index: 0-127
+<value>                ; Value: 0-127 (7-bit)
 F7                     ; SysEx end
 ```
 
@@ -51,7 +52,7 @@ F7                     ; SysEx end
 
 ---
 
-### Push 3 – Bulk Upload (`0x43`)
+### Push 3 - Bulk Upload (`0x43`)
 
 Push 3 allows sending **the entire LUT at once** in a single SysEx frame.
 
@@ -84,7 +85,7 @@ F7                     ; SysEx end
 
 **Recommendation:**
 Always use `0x43` for Push 3.
-Treat `0x20` as **legacy** and only use if you’ve tested it on actual hardware.
+Treat `0x20` as **legacy** and only use if you have tested it on actual hardware.
 
 ---
 
@@ -92,12 +93,12 @@ Treat `0x20` as **legacy** and only use if you’ve tested it on actual hardware
 
 Push 2 parameters are high-level and implicit. Push 3 exposes more granular control.
 
-| Concept            | Push 2 (UI)         | Push 3 (UI)           | Notes                                |
-| ------------------ | ------------------- | --------------------- | ------------------------------------ |
-| Initial Dead-zone  | Implicit in presets | **Threshold (0–100)** | Adds explicit control in Push 3      |
-| Mid-slope / Gain   | Gain                | **Drive (-50…+50)**   | Similar exponential effect           |
-| Start/End Shaping  | Dynamics            | **Compand (-50…+50)** | Controls curve knee shape (logistic) |
-| Saturation / Range | Implicit in preset  | **Range (0–100)**     | Where plateau starts                 |
+| Concept            | Push 2 (UI)         | Push 3 (UI)             | Notes                                |
+| ------------------ | ------------------- | ----------------------- | ------------------------------------ |
+| Initial Dead-zone  | Implicit in presets | **Threshold (0-100)**   | Adds explicit control in Push 3      |
+| Mid-slope / Gain   | Gain                | **Drive (-50...+50)**   | Similar exponential effect           |
+| Start/End Shaping  | Dynamics            | **Compand (-50...+50)** | Controls curve knee shape (logistic) |
+| Saturation / Range | Implicit in preset  | **Range (0-100)**       | Where plateau starts                 |
 
 To replicate Push 2 behavior on Push 3:
 
@@ -110,18 +111,18 @@ To replicate Push 2 behavior on Push 3:
 
 The LUT is built in **four sequential steps**:
 
-1. **Threshold** – Adds leading dead-zone (near-zero sensitivity).
-2. **Drive** – Adjusts overall steepness.
-3. **Compand** – Shapes the curve using an S-shape (logistic blend).
-4. **Range** – Determines where saturation (`127`) begins.
+1. **Threshold** - Adds leading dead-zone (near-zero sensitivity).
+2. **Drive** - Adjusts overall steepness.
+3. **Compand** - Shapes the curve using an S-shape (logistic blend).
+4. **Range** - Determines where saturation (`127`) begins.
 
-Processing order: **Threshold → Drive → Compand → Range**
+Processing order: **Threshold -> Drive -> Compand -> Range**
 
 ---
 
 ## Step-by-Step Curve Functions
 
-Each function returns a normalized list `[0.0 – 1.0]` of 128 values.
+Each function returns a normalized list `[0.0 - 1.0]` of 128 values.
 
 ### 1. Threshold
 
@@ -131,7 +132,7 @@ def threshold_curve(threshold: int):
     Apply leading dead-zone before velocity starts to rise.
     """
     threshold = max(0, min(100, threshold))
-    Nt = round(threshold * 16 / 100.0)  # 0–16 dead-zone entries
+    Nt = round(threshold * 16 / 100.0)  # 0-16 dead-zone entries
     out = []
     for i in range(128):
         if i < Nt:
@@ -241,7 +242,7 @@ def build_curve(threshold: int, drive: int, compand: int, range_: int):
 
 ## SysEx Packing
 
-### Push 2 – Per-entry
+### Push 2 - Per-entry
 
 ```python
 def to_sysex_push2_entry(index, value):
@@ -254,7 +255,7 @@ def to_sysex_push2_entry(index, value):
 
 ---
 
-### Push 3 – Bulk
+### Push 3 - Bulk
 
 ```python
 def to_sysex_push3(curve, echo_params=None):
@@ -315,8 +316,8 @@ if first_127 is not None:
 
 1. **Direct LUT Transfer**
 
-   * **Try** to take a Push 2 LUT and send it directly to Push 3 inside a `0x43` bulk frame.
-   * I could not test this, as I dont own a Push 2.
+   * Try to take a Push 2 LUT and send it directly to Push 3 inside a `0x43` bulk frame.
+   * I could not test this, as I don't own a Push 2.
 
 2. **Parameter Matching**
 
@@ -332,13 +333,13 @@ if first_127 is not None:
 
 ## Final Comparison
 
-| Item                | Push 2                                     | Push 3              |
-| ------------------- | ------------------------------------------ | ------------------- |
-| SysEx Command       | `0x20`                                     | `0x43`              |
-| Extra Header Bytes  | None                                       | `01 01 01 01`       |
-| Optional Echo Bytes | None                                       | 4 bytes (optional)  |
-| Transfer Method     | 128 separate messages                      | Single bulk message |
-| LUT Format          | Identical (128×7-bit, monotonic + plateau) | Same                |
+| Item                | Push 2                                       | Push 3              |
+| ------------------- | -------------------------------------------- | ------------------- |
+| SysEx Command       | `0x20`                                       | `0x43`              |
+| Extra Header Bytes  | None                                         | `01 01 01 01`       |
+| Optional Echo Bytes | None                                         | 4 bytes (optional)  |
+| Transfer Method     | 128 separate messages                        | Single bulk message |
+| LUT Format          | Identical (128 x 7-bit, monotonic + plateau) | Same                |
 
 ---
 
