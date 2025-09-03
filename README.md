@@ -2,7 +2,8 @@
 
 This section contains comprehensive technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings. 
 
-Most of this comparative analysis is based on Ableton’s official Push 2 documentation available on GitHub. Since I don’t own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
+Most of the comparative analysis is based on Ableton’s official Push 2 documentation available on GitHub. 
+Since I don’t own a Push 2, all *comparisons* are derived from that documentation rather than direct hardware testing.
 
 ## Documentation Overview
 
