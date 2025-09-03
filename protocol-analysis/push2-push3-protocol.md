@@ -2,26 +2,17 @@
 
 Detailed technical comparison between Ableton Push 2 and Push 3 communication protocols, based on reverse engineering analysis and official Push 2 documentation.
 
-## Executive Summary
-
-| Aspect | Push 2 | Push 3 | Compatibility | Improvement |
-|--------|---------|---------|---------------|-------------|
-| **USB Display** | 960×160 RGB565 | 960×160 RGB565 | Identical | Performance only |
-| **MIDI Protocol** | Documented SysEx | Same + Extensions | Full compatibility | Additional commands |
-| **Performance** | 50-100ms frames | 20-30ms frames | Same interface | 2-3x faster |
-| **Security** | None(?) | XOR encryption | New requirement | Added security |
+Most of this comparative analysis is based on Ableton’s official Push 2 documentation available on GitHub. Since I don’t own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
 
 ## USB Display Protocol Comparison
 
-### Frame Structure
-```
-Push 2 Frame Header:
-FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
+### USB Hardware
 
-Push 3 Frame Header: 
-FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
-```
-**Result**: **Identical** - Perfect compatibility at frame level
+| Feature | Push 2 | Push 3 | Technical Difference |
+|---------|---------|---------|---------------------|
+| **Vendor ID** | `0x2982` | `0x2982` | Same (Ableton) |
+| **Product ID** | `0x1967` | `0x1969` | Incremented by 2 |
+
 
 ### Display Specifications
 
@@ -34,6 +25,16 @@ FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
 | **Pixel Data** | 1,920 bytes/line | 1,920 bytes/line | Identical |
 | **Line Padding** | 128 bytes/line | 128 bytes/line | Identical |
 
+### Frame Structure
+```
+Push 2 Frame Header:
+FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
+
+Push 3 Frame Header: 
+FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
+```
+**Result**: **Identical** - Perfect compatibility at frame level
+
 ### USB Transfer Performance
 
 | Metric | Push 2 | Push 3 | Improvement Factor |
@@ -42,6 +43,26 @@ FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
 | **Transfer Time** | 50-100ms | 20-30ms | **2-3x faster** |
 | **Bandwidth** | ~3-6 MB/s | ~10-15 MB/s | **2-3x higher** |
 | **USB Standard** | USB 2.0 Bulk | USB 2.0 Bulk | Same |
+
+### USB Transfer Optimization
+
+#### Push 2 Transfer Pattern
+```python
+# Push 2: Small chunks, many transfers
+PUSH2_CHUNK_SIZE = 512      # 512 bytes per transfer
+PUSH2_CHUNKS_PER_FRAME = 640  # ~640 USB transfers per frame
+PUSH2_TRANSFER_TIME = "50-100ms"
+```
+
+#### Push 3 Transfer Pattern  
+```python
+# Push 3: Large chunks, fewer transfers
+PUSH3_CHUNK_SIZE = 16384    # 16KB per transfer
+PUSH3_CHUNKS_PER_FRAME = 20   # ~20 USB transfers per frame  
+PUSH3_TRANSFER_TIME = "20-30ms"
+```
+
+**Analysis**: Push 3's larger chunk size dramatically reduces USB overhead.
 
 ### Push 3 Encryption
 ```python
@@ -118,6 +139,7 @@ PUSH3_EXTENSIONS = {
 |---------|-------------|-------------|------------|------------|-----------|
 | **1** | CC 0 | CC 0 | CC 71 | CC 71 | Yes |
 | **2** | CC 1 | CC 1 | CC 72 | CC 72 | Yes |
+| **...**|  |  |  |  | Yes |
 | **8** | CC 7 | CC 7 | CC 78 | CC 78 | Yes |
 
 #### Pads
@@ -130,44 +152,8 @@ PAD_MAPPING = {
     'top_right': 99      # D#6
 }
 ```
-
-### USB Hardware
-
-| Feature | Push 2 | Push 3 | Technical Difference |
-|---------|---------|---------|---------------------|
-| **Vendor ID** | `0x2982` | `0x2982` | Same (Ableton) |
-| **Product ID** | `0x1967` | `0x1969` | Incremented by 2 |
-
-## Performance Analysis
-
-### USB Transfer Optimization
-
-#### Push 2 Transfer Pattern
-```python
-# Push 2: Small chunks, many transfers
-PUSH2_CHUNK_SIZE = 512      # 512 bytes per transfer
-PUSH2_CHUNKS_PER_FRAME = 640  # ~640 USB transfers per frame
-PUSH2_TRANSFER_TIME = "50-100ms"
-```
-
-#### Push 3 Transfer Pattern  
-```python
-# Push 3: Large chunks, fewer transfers
-PUSH3_CHUNK_SIZE = 16384    # 16KB per transfer
-PUSH3_CHUNKS_PER_FRAME = 20   # ~20 USB transfers per frame  
-PUSH3_TRANSFER_TIME = "20-30ms"
-```
-
-**Analysis**: Push 3's larger chunk size dramatically reduces USB overhead.
-
-### Real-World Performance
-
-| Use Case | Push 2 | Push 3 | Improvement |
-|----------|---------|---------|-------------|
-| **Static Images** | 50-80ms | 20-25ms | ~2.5x faster |
-| **Real-time Updates** | 60-100ms | 25-30ms | ~3x faster |
-| **Animation (30 FPS)** | Difficult | Achievable | Enables smooth animation |
-| **CPU Usage** | High (USB overhead) | Medium | Reduced system load |
+**Most** CC Mappings are the same across the Push 2 and 3.
+However, more work needs to be done to list each one in comparison.
 
 ## Migration Guidelines
 

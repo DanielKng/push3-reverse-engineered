@@ -1,12 +1,15 @@
 # Push 3 Reverse Engineering Documentation
 
-This section contains comprehensive technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings.
+This section contains comprehensive technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings. 
+
+Most of this comparative analysis is based on Ableton’s official Push 2 documentation available on GitHub. Since I don’t own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
 
 ## Documentation Overview
 
 ### Protocol Analysis
-- **[USB Display Protocol](protocol-analysis/usb-display-protocol.md)** - Complete USB framebuffer implementation
-- **[Push 2 vs Push 3 Comparison](protocol-analysis/push2-vs-push3-comparison.md)** - Detailed compatibility analysis
+- **[Push 2 vs Push 3 Protocol Comparison](protocol-analysis/push2-push3-protocol.md)** - Detailed compatibility analysis highlighting differences and nuances between both devices.
+- **[Push 3 USB Display Protocol](protocol-analysis/push3-display-protocol.md)** - Full documentation of the USB framebuffer implementation specific to the Push 3.
+- **[Pad Sensitivity Curve Documentation](protocoal-analysis/push2-push3-curve-protocol.md)** - Explanation of how pad sensitivity curves are generated and how they differ between Push 2 and Push 3.
 
 ### Interface Mapping
 - **[Button Mapping](interface-mapping/buttons.md)** - All 70+ buttons with CC values
@@ -34,13 +37,6 @@ This section contains comprehensive technical documentation of the Ableton Push 
 - **Device ID**: Same manufacturer/device ID as Push 2
 - **Handshake**: Identical device inquiry/response sequence
 
-### Interface Layout
-- **64 Velocity Pads**: 8×8 grid, notes 36-99
-- **70+ Control Buttons**: Transport, navigation, modes
-- **10 Encoders**: 8 parameter + volume + tempo/swing
-- **Touch Strip**: Pitch bend, modulation, custom control
-- **Display Controls**: 16 buttons (8 upper, 8 lower display)
-
 ## Research Methodology
 
 1. **USB Protocol Analysis**: Using Wireshark, USBPcap for traffic capture
@@ -49,18 +45,3 @@ This section contains comprehensive technical documentation of the Ableton Push 
 4. **Performance Testing**: Frame rate and latency measurements with `display_test.py`
 5. **LED Control Testing**: Visual feedback validation with `midi_test.py`
 6. **Display Prototyping**: Logic Pro interface mockups with `text_renderer.py`
-
-## Available Documentation
-
-The following documentation files are available in this section:
-
-### Protocol Analysis
-- **[usb-display-protocol.md](protocol-analysis/usb-display-protocol.md)** - Complete USB protocol documentation
-- **[push2-vs-push3-comparison.md](protocol-analysis/push2-vs-push3-comparison.md)** - Compatibility analysis
-
-### Interface Mapping  
-- **[buttons.md](interface-mapping/buttons.md)** - Complete button mapping with CC values
-- **[encoders.md](interface-mapping/encoders.md)** - Encoder and knob mappings with touch detection
-
-### Research Tools
-- **[tools/README.md](tools/README.md)** - Complete tool documentation and usage examples
