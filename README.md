@@ -9,7 +9,7 @@ Most of this comparative analysis is based on Ableton’s official Push 2 docume
 ### Protocol Analysis
 - **[Push 2 vs Push 3 Protocol Comparison](protocol-analysis/push2-push3-protocol.md)** - Detailed compatibility analysis highlighting differences and nuances between both devices.
 - **[Push 3 USB Display Protocol](protocol-analysis/push3-display-protocol.md)** - Full documentation of the USB framebuffer implementation specific to the Push 3.
-- **[Pad Sensitivity Curve Documentation](protocoal-analysis/push2-push3-curve-protocol.md)** - Explanation of how pad sensitivity curves are generated and how they differ between Push 2 and Push 3.
+- **[Pad Sensitivity Curve Documentation](protocol-analysis/push2-push3-curve-protocol.md)** - Explanation of how pad sensitivity curves are generated and how they differ between Push 2 and Push 3.
 
 ### Interface Mapping
 - **[Button Mapping](interface-mapping/buttons.md)** - All 70+ buttons with CC values
