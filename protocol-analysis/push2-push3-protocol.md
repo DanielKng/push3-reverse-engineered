@@ -80,13 +80,13 @@ PUSH3_TRANSFER_TIME = "20-30ms"
 
 ---
 
-### Push 3 Encryption
+### Push Encryption
 
 ```python
-# Push 3 XOR Pattern (Confirmed)
+# Push XOR Pattern
 XOR_PATTERN = [0xE7, 0xF3, 0xE7, 0xFF]
 
-def encrypt_push3_frame(data):
+def encrypt_push_frame(data):
     encrypted = bytearray(data)
     for i in range(len(encrypted)):
         encrypted[i] ^= XOR_PATTERN[i % 4]
