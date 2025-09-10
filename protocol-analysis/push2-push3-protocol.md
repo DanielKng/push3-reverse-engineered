@@ -201,10 +201,11 @@ However, more work needs to be done to list each one in comparison.
 def send_frame_push2_style(device, frame_data):
     header = FRAME_HEADER
     device.write(0x01, header)
-    # Encrypt for push 2, same XOR Pattern
+    
+    encrypted = encrypt_push_frame(frame_data)
     # Small chunks (slower but compatible)
     for i in range(0, len(frame_data), 512):
-        chunk = frame_data[i:i+512]
+        chunk = encrypted[i:i+512]
         device.write(0x01, chunk)
 
 # Push 3 optimized (recommended)
@@ -213,7 +214,7 @@ def send_frame_push3_optimized(device, frame_data):
     device.write(0x01, header)
     
     # Encrypt frame data (Push 3 requirement)
-    encrypted = encrypt_push3_frame(frame_data)
+    encrypted = encrypt_push_frame(frame_data)
     
     # Large chunks (much faster)
     for i in range(0, len(encrypted), 16384):
@@ -244,12 +245,12 @@ def set_button_led(midi_out, button_cc, color):
 class UniversalPushDisplay:
     def __init__(self, device_type):
         self.device_type = device_type
-        self.encryption = device_type == 'push3'
+        self.encryption = device_type == 'push3' or 'push2'
         self.chunk_size = 16384 if device_type == 'push3' else 512
     
     def send_frame(self, frame_data):
         if self.encryption:
-            frame_data = encrypt_push3_frame(frame_data)
+            frame_data = encrypt_push_frame(frame_data)
         
         self._transfer_chunks(frame_data, self.chunk_size)
 ```
@@ -308,7 +309,7 @@ def optimize_for_device(device_type):
     else:  # Push 2
         return {
             'chunk_size': 512,
-            'encryption': False,
+            'encryption': True,
             'target_fps': 15,
             'advanced_features': False
         }
