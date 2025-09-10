@@ -204,7 +204,7 @@ def send_frame_push2_style(device, frame_data):
     
     encrypted = encrypt_push_frame(frame_data)
     # Small chunks (slower but compatible)
-    for i in range(0, len(frame_data), 512):
+    for i in range(0, len(encrypted), 512):
         chunk = encrypted[i:i+512]
         device.write(0x01, chunk)
 
