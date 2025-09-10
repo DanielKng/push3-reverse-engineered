@@ -1,413 +1,309 @@
 # Push 2 vs Push 3 - Pad Sensitivity Curve Documentation
 
-## ⚠️ This information is currently incorrect. I am working to correct it.
+This document explains how Push 2 and Push 3 handle pad sensitivity curves.  
+It covers **message formats**, **curve generation**, and **working code** for both devices.
 
-This document explains how Ableton Push 2 and Push 3 handle pad sensitivity curves via SysEx.
-It details the differences between the two devices, including message formats, UI parameters, and migration strategies.
-
-Most of this comparative analysis is based on Ableton's official Push 2 documentation available on GitHub.
-Since I do not own a Push 2, all comparisons are derived from that documentation rather than direct hardware testing.
+The general information in this document is based on the GitHub project https://github.com/git-moss/DrivenByMoss.
 
 ---
 
-## Overview
+## 1. Overview
 
-Both devices use a 128-entry lookup table (LUT) to map pad force readings to MIDI velocities (1-127).
-Each LUT entry is a single 7-bit value (0-127).
+Both devices use a **128-entry lookup table (LUT)** to convert **pad pressure** into **MIDI velocity**.
 
-| Concept        | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| LUT Length     | 128 entries                                                |
-| Entry Size     | 1 byte (7-bit safe)                                        |
-| Monotonic Rule | Values must never decrease                                 |
-| Plateau Rule   | Once a value hits 127, all following entries must stay 127 |
+Each LUT entry is a single 7-bit value (0..127).
 
----
-
-## Executive Summary
-
-| Aspect           | Push 2                           | Push 3                            | Compatibility           | Notes                                         |
-| ---------------- | -------------------------------- | --------------------------------- | ----------------------- | --------------------------------------------- |
-| Curve Transport  | 0x20 - Per-entry SysEx message   | 0x43 - Bulk SysEx (all 128 bytes) | Identical LUT format    | Push 3 adds subheader + optional echo bytes   |
-| LUT Format       | 128 x 7-bit, monotonic + plateau | Same                              | Full compatibility      |                                               |
-| Parameters (UI)  | Sensitivity, Gain, Dynamics      | Threshold, Drive, Compand, Range  | Maps 3 -> 4             | Threshold is new in Push 3                    |
-| Backward Support | Only 0x20                        | Confirmed: 0x43  Unverified: 0x20 | Safe to migrate to 0x43 | Do not rely on 0x20 unless you have tested it |
+| Term           | Meaning                                       |
+| -------------- | --------------------------------------------- |
+| LUT length     | 128 values                                    |
+| Value range    | 0..127 (7-bit)                                |
+| Monotonic rule | Values must never go down                     |
+| Plateau rule   | Once a value hits 127, all following stay 127 |
 
 ---
 
-## SysEx Message Layouts
+## 2. Push 2 vs Push 3
 
-### Parameter Echo Overview
-
-Push 3 bulk SysEx (0x43) may include an optional set of 4 informational bytes placed immediately before the LUT:
-
-```
-[Threshold, Drive, Compand, Range]
-```
-
-They are metadata only and do not affect the LUT upload. How to generate these bytes is documented later in section "Echo Parameter Generator".
+| Aspect         | Push 2                               | Push 3                                     |
+| -------------- | ------------------------------------ | ------------------------------------------ |
+| Sending method | 0x20 per-entry (8 chunks of 16)      | 0x43 single bulk message (all 128 at once) |
+| Extra message  | 0x1B with thresholds + cpmin + cpmax | None                                       |
+| Curve building | LUT + separate calibration           | LUT only                                   |
+| Complexity     | Higher                               | Lower                                      |
 
 ---
 
-### Push 2 - Per-entry Write (0x20)
+## 3. Why Push 2 Needs Thresholds
 
-Push 2 requires 128 separate messages, one for each index.
+Push 2 needs **two calibration values** for its pads:
+
+| Name  | Purpose                                                  |
+| ----- | -------------------------------------------------------- |
+| cpmin | Minimum force that counts as a pad press                 |
+| cpmax | Force at which the pad is fully saturated (velocity 127) |
+
+If these are missing:
+
+* cpmin too low → pads trigger too easily.
+* cpmax too high → full velocity is unreachable.
+
+Push 3 **does not need these values**, because:
+
+* Its LUT already defines the start point (**Threshold**) and end point (**Range**) directly.
+* No extra messages required.
+
+---
+
+## 4. SysEx Message Formats
+
+### 4.1 Push 2 - Curve (0x20)
+
+Sends the LUT in 8 messages, each carrying 16 values.
 
 ```
 F0 00 21 1D
 01 01 20
-<index>                ; 0-127
-<value>                ; 0-127 (7-bit)
+<start_index>          ; 0, 16, 32, ... 112
+<16 values>            ; each 0-127
 F7
 ```
 
-* Sent 128 times to upload a full curve.
-* No subheader or echo bytes.
-
 ---
 
-### Push 3 - Bulk Upload (0x43)
+### 4.2 Push 2 - Calibration (0x1B)
 
-Push 3 allows sending the entire LUT at once in a single SysEx frame.
+One message with four numbers:
+
+* th0 = 33 (fixed)
+* th1 = 31 (fixed)
+* cpmin
+* cpmax
+
+Each is split into two bytes:
+
+* L = value & 0x7F  (low 7 bits)
+* H = (value >> 7) & 0x1F (high 5 bits)
 
 ```
-F0 00 21 1D            ; SysEx start + Ableton manufacturer ID
-01 01 43               ; Device family + CMD 0x43 (Pad Sensitivity Curve)
-01 01 01 01            ; Constant subheader (always required)
-[optional 4 bytes]     ; UI echo: Threshold, Drive, Compand, Range (optional)
-<128 curve bytes>      ; LUT: monotonic, plateau at 0x7F
-F7                     ; SysEx end
-```
-
-Notes:
-
-* Echo bytes optional, informational only (see "Echo Parameter Generator").
-* LUT must always be 128 bytes, 7-bit safe.
-* Once a 127 appears, all following values must be 127.
-
----
-
-## Key Differences
-
-| Element         | Push 2                   | Push 3              |
-| --------------- | ------------------------ | ------------------- |
-| Command Byte    | 0x20                     | 0x43                |
-| Subheader       | None                     | 01 01 01 01         |
-| Echo Bytes      | None                     | Optional (4 bytes)  |
-| Transfer Method | 128 separate messages    | Single bulk message |
-| LUT Rules       | Monotonic + plateau rule | Same                |
-
-Recommendation:
-Always use 0x43 for Push 3. Treat 0x20 as legacy and only use if you have tested it on actual hardware.
-
----
-
-## UI Parameter Mapping
-
-Push 2 parameters are high-level and implicit. Push 3 exposes more granular control.
-
-| Concept            | Push 2 (UI) | Push 3 (UI)        | Notes                                |
-| ------------------ | ----------- | ------------------ | ------------------------------------ |
-| Initial Dead-zone  | Implicit    | Threshold (0-100)  | Adds explicit control in Push 3      |
-| Mid-slope / Gain   | Gain        | Drive (-50..+50)   | Similar exponential effect           |
-| Start/End Shaping  | Dynamics    | Compand (-50..+50) | Controls curve knee shape (logistic) |
-| Saturation / Range | Implicit    | Range (0-100)      | Where plateau starts                 |
-
-To replicate Push 2 behavior on Push 3:
-
-* Set Threshold = 0.
-* Tune Drive, Compand, Range to approximate original feel.
-
----
-
-## Curve Generation Model
-
-The LUT is built in four sequential steps:
-
-1. Threshold - Adds leading dead-zone (near-zero sensitivity).
-2. Drive - Adjusts overall steepness.
-3. Compand - S-shaped knee (logistic blend).
-4. Range - Determines where saturation (127) begins.
-
-Processing order: Threshold -> Drive -> Compand -> Range
-
----
-
-## Step-by-Step Curve Functions
-
-Each function returns a normalized list \[0.0 - 1.0] of 128 values.
-Only at the very end are these values quantized to \[0-127].
-
----
-
-### 1. Threshold
-
-```python
-def threshold_curve(threshold: int):
-    """
-    Apply leading dead-zone before velocity starts to rise.
-    """
-    threshold = max(0, min(100, threshold))
-    Nt = round(threshold * 16 / 100.0)  # 0-16 dead-zone entries
-    out = []
-    for i in range(128):
-        if i < Nt:
-            out.append(1/127.0)  # Minimal non-zero to avoid velocity=0
-        else:
-            out.append((i - Nt) / (127 - Nt) if Nt < 127 else 1.0)
-    return out
+F0 00 21 1D
+01 01 1B
+<th0_L> <th0_H>
+<th1_L> <th1_H>
+<cpmin_L> <cpmin_H>
+<cpmax_L> <cpmax_H>
+F7
 ```
 
 ---
 
-### 2. Drive
+### 4.3 Push 3 - Bulk Curve (0x43)
+
+One single message containing all 128 curve values.
+
+```
+F0 00 21 1D
+01 01 43
+<128 values>          ; 7-bit, monotonic, plateau at 127
+F7
+```
+
+---
+
+## 5. Push 3 Parameters
+
+| Parameter | Range    | Meaning                                                           |
+| --------- | -------- | ----------------------------------------------------------------- |
+| Threshold | 0..100   | Pads below this are always velocity 1                             |
+| Drive     | -50..+50 | Skews the curve: negative = softer start, positive = harder start |
+| Compand   | -50..+50 | Adds a soft or hard transition (S-shape)                          |
+| Range     | 0..100   | Pads above this are always velocity 127                           |
+
+Mapping:
+
+* Threshold → 0..16 leading 1s.
+* Range → 0..103 trailing 127s.
+* Drive → b = clamp(0.5 + Drive/100, 0.01..0.99)
+* Compand → g = clamp(0.5 + Compand/100, 0.01..0.99)
+
+---
+
+## 6. Building the Push 3 Curve
+
+### 6.1 Helper Functions
 
 ```python
 import math
 
-def drive_curve(drive: int):
-    """
-    Exponential steepness control:
-    Negative = flatter, Positive = steeper.
-    """
-    drive = max(-50, min(50, drive))
-    expo = math.exp(-(drive / 50.0))
-    return [(i/127.0) ** expo for i in range(128)]
+def clamp(x, lo, hi):
+    return max(lo, min(hi, x))
+
+def bias(x, b):
+    # Schlick bias
+    return x / ((1/b - 2) * (1 - x) + 1)
+
+def gain(x, g):
+    # Schlick gain
+    if x < 0.5:
+        return 0.5 * bias(2*x, 1-g)
+    return 1 - 0.5 * bias(2-2*x, 1-g)
 ```
 
 ---
 
-### 3. Compand
+### 6.2 Calculate Threshold and Range Counts
 
 ```python
-def compand_curve(compand: int):
-    """
-    S-shaped knee adjustment for soft/hard touches.
-    """
-    compand = max(-50, min(50, compand))
-    a = compand / 50.0
+def threshold_count(threshold):
+    # 0..100 -> 0..16
+    return round(clamp(threshold, 0, 100) * 16 / 100)
 
-    def blend(u):
-        if a == 0.0:
-            return u
-        s = 1.0 / (1.0 + math.exp(-6.0 * a * (u - 0.5)))
-        return (1.0 - abs(a)) * u + abs(a) * s
-
-    return [blend(i/127.0) for i in range(128)]
+def range_count(range_):
+    # 0..100 -> 0..103
+    return round(clamp(range_, 0, 100) * 103 / 100)
 ```
 
 ---
 
-### 4. Range
+### 6.3 Build the Full LUT
 
 ```python
-def range_curve(range_: int):
-    """
-    Determines where values clamp to 1.0 (velocity 127).
+def build_curve_push3(threshold, drive, compand, range_):
+    Nt = threshold_count(threshold)  # leading 1s
+    Nr = range_count(range_)         # trailing 127s
 
-    When range_ = 0, the result saturates immediately, meaning every value
-    except the very first will quantize to velocity=127.
-    """
-    range_ = max(0, min(100, range_))
-    A = (range_ / 100.0) or 1e-6
-    return [min((i/127.0)/A, 1.0) for i in range(128)]
-```
+    # safety
+    Nt = min(Nt, 127)
+    Nr = min(Nr, 127 - Nt)
 
----
+    numCurveValues = max(2, 128 - Nt - Nr + 2)
 
-## Full LUT Assembly
+    b = clamp(0.5 + drive / 100, 0.01, 0.99)
+    g = clamp(0.5 + compand / 100, 0.01, 0.99)
 
-The final function correctly uses the four step functions and only quantizes at the end.
+    curve = [0] * 128
 
-```python
-def build_curve(threshold: int, drive: int, compand: int, range_: int):
-    """
-    Generates a final 128-entry LUT with strictly monotonic values.
-    Returns integer values [0-127].
-    """
+    # 1) Threshold region
+    for i in range(Nt):
+        curve[i] = 1
 
-    # Step 1: Threshold
-    tmp = threshold_curve(threshold)
+    # 2) Dynamic region
+    for i in range(numCurveValues):
+        x = i / (numCurveValues - 1)
+        y = gain(x, g)     # Compand first
+        y = bias(y, b)     # Drive second
+        v = int(round(1 + y * 126))
+        curve[max(0, Nt + i - 1)] = min(127, max(1, v))
 
-    # Step 2: Drive
-    drive_values = drive_curve(drive)
-    tmp = [x * y for x, y in zip(tmp, drive_values)]
+    # 3) Range region
+    for i in range(128 - Nr, 128):
+        curve[i] = 127
 
-    # Step 3: Compand
-    comp_values = compand_curve(compand)
-    tmp = [x * y for x, y in zip(tmp, comp_values)]
-
-    # Step 4: Range
-    range_values = range_curve(range_)
-    tmp = [x * y for x, y in zip(tmp, range_values)]
-
-    # Quantize and enforce plateau
-    out, plateau = [], False
-    for i, x in enumerate(tmp):
-        v = int(round(127 * x))
-        # Zero-velocity safety: only index 0 may be 0. Any x>0 must quantize to at least 1.
-        if v == 0 and x > 0.0:
-            v = 1
-
-        if plateau:
-            v = 127
-        elif v >= 127:
-            v = 127
-            plateau = True
-        out.append(v)
-
-    # Ensure strictly monotonic
+    # 4) Make sure curve never decreases
     for i in range(1, 128):
-        if out[i] < out[i-1]:
-            out[i] = out[i-1]
+        if curve[i] < curve[i-1]:
+            curve[i] = curve[i-1]
 
-    return out
+    return curve
 ```
 
 ---
 
-## Echo Parameter Generator
+## 7. Sending to Push 3
 
-This helper converts Push 3 UI parameter values directly into the four optional SysEx echo bytes. It clamps inputs to valid ranges and scales them to MIDI-safe integers \[0..127]. Order is \[Threshold, Drive, Compand, Range].
+### 7.1 Build the SysEx message
 
 ```python
-def make_echo_params(threshold: int, drive: int, compand: int, range_: int):
-    """
-    Convert UI parameter values into 7-bit echo bytes [0..127].
-    Threshold: 0..100  -> 0..127
-    Drive:    -50..+50 -> 0..127
-    Compand:  -50..+50 -> 0..127
-    Range:     0..100  -> 0..127
-    """
-    t = max(0, min(100, threshold))
-    d = max(-50, min(50, drive))
-    c = max(-50, min(50, compand))
-    r = max(0, min(100, range_))
-
-    threshold_sysex = round(t * 127 / 100.0)
-    drive_sysex     = round((d + 50) * 127 / 100.0)
-    compand_sysex   = round((c + 50) * 127 / 100.0)
-    range_sysex     = round(r * 127 / 100.0)
-
-    return [threshold_sysex, drive_sysex, compand_sysex, range_sysex]
-```
-
-Example:
-
-```
-Threshold=7, Drive=+4, Compand=-26, Range=38
--> make_echo_params(7, 4, -26, 38) == [9, 69, 30, 48]
+def to_sysex_push3(curve):
+    # F0 00 21 1D 01 01 43 <128 bytes> F7
+    return [0xF0,0x00,0x21,0x1D,0x01,0x01,0x43,*curve,0xF7]
 ```
 
 ---
 
-## SysEx Packing
-
-### Push 2 - Per-entry
-
-```python
-def to_sysex_push2_entry(index, value):
-    """
-    Build a single SysEx message for one LUT entry (Push 2 style).
-    """
-    assert 0 <= index <= 127 and 0 <= value <= 127
-    return [0xF0,0x00,0x21,0x1D,0x01,0x01,0x20, index, value, 0xF7]
-```
-
----
-
-### Push 3 - Bulk
-
-```python
-def to_sysex_push3(curve, echo_params=None):
-    """
-    Build a full bulk SysEx message for Push 3.
-    """
-    assert len(curve) == 128 and all(0 <= v <= 127 for v in curve)
-
-    frame = [
-        0xF0,0x00,0x21,0x1D,  # SysEx + manufacturer
-        0x01,0x01,0x43,       # Device + command
-        0x01,0x01,0x01,0x01   # Required subheader
-    ]
-
-    # Optional echo bytes: [Threshold, Drive, Compand, Range]
-    if echo_params:
-        if len(echo_params) != 4:
-            raise ValueError("echo_params must have 4 values")
-        frame.extend([max(0, min(127, int(v))) for v in echo_params])
-
-    frame.extend(curve)
-    frame.append(0xF7)
-    return frame
-```
-
----
-
-## Minimal Send Example
+### 7.2 Example Usage
 
 ```python
 import mido
 
-curve = build_curve(threshold=0, drive=4, compand=-26, range_=38)
-echo  = make_echo_params(0, 4, -26, 38)  # optional
-frame = to_sysex_push3(curve, echo_params=echo)
+curve = build_curve_push3(threshold=5, drive=10, compand=-10, range_=30)
+frame = to_sysex_push3(curve)
 
 with mido.open_output("Ableton Push 3") as out:
-    # mido strips F0/F7 automatically
-    out.send(mido.Message('sysex', data=frame[1:-1]))
+    out.send(mido.Message("sysex", data=frame[1:-1]))  # mido strips F0/F7
 ```
 
 ---
 
-## Validation Before Sending
+## 8. Push 2 Code
+
+### 8.1 Build Curve Chunks
 
 ```python
-# Monotonic rule
-assert all(curve[i] >= curve[i-1] for i in range(1, 128))
-
-# Plateau rule
-first_127 = next((i for i, v in enumerate(curve) if v == 127), None)
-if first_127 is not None:
-    assert all(v == 127 for v in curve[first_127:])
+def push2_curve_chunks(curve):
+    frames = []
+    for start in range(0, 128, 16):
+        payload = [0x20, start, *curve[start:start+16]]
+        frames.append([0xF0,0x00,0x21,0x1D,0x01,0x01,*payload,0xF7])
+    return frames
 ```
 
 ---
 
-## Migration Guidelines
+### 8.2 Build Calibration Message
 
-1. Direct LUT Transfer
+```python
+def split_14bit(v):
+    return v & 0x7F, (v >> 7) & 0x1F
 
-* You can take a Push 2 LUT and send it directly to Push 3 inside a 0x43 bulk frame.
-* I could not test this, as I do not own a Push 2.
-
-2. Parameter Matching
-
-* On Push 3, set Threshold = 0 to emulate Push 2 behavior.
-* Adjust Drive, Compand, and Range to approximate the original feel.
-
-3. Legacy 0x20 on Push 3
-
-* Whether Push 3 supports the old per-entry 0x20 messages is unverified.
-* Always prefer bulk 0x43.
+def push2_threshold_cp(th0, th1, cpmin, cpmax):
+    data = [0x1B]
+    for val in (th0, th1, cpmin, cpmax):
+        L, H = split_14bit(val)
+        data += [L, H]
+    return [0xF0,0x00,0x21,0x1D,0x01,0x01,*data,0xF7]
+```
 
 ---
 
-## Final Comparison
+### 8.3 Send Everything to Push 2
 
-| Item                | Push 2                                       | Push 3              |
-| ------------------- | -------------------------------------------- | ------------------- |
-| SysEx Command       | 0x20                                         | 0x43                |
-| Extra Header Bytes  | None                                         | 01 01 01 01         |
-| Optional Echo Bytes | None                                         | 4 bytes (optional)  |
-| Transfer Method     | 128 separate messages                        | Single bulk message |
-| LUT Format          | Identical (128 x 7-bit, monotonic + plateau) | Same                |
+```python
+with mido.open_output("Ableton Push 2") as out:
+    cpmin = 1650
+    cpmax = 2050
+
+    frames = push2_curve_chunks(curve)
+    cfg = push2_threshold_cp(33, 31, cpmin, cpmax)
+
+    for f in frames:
+        out.send(mido.Message("sysex", data=f[1:-1]))
+    out.send(mido.Message("sysex", data=cfg[1:-1]))
+```
 
 ---
 
-## Key Takeaways
+## 9. Validation
 
-1. LUT format is identical -> migration is straightforward.
-2. Push 3 framing adds metadata -> new subheader + optional echo bytes.
-3. Push 3 bulk uploads are faster and easier than Push 2 per-entry writes.
-4. Always validate curves before sending to avoid corrupted input.
+```python
+def validate(curve):
+    assert len(curve) == 128
+    assert all(0 <= v <= 127 for v in curve)
+    for i in range(1, 128):
+        assert curve[i] >= curve[i-1]
+    idx = next((i for i,v in enumerate(curve) if v == 127), None)
+    if idx is not None:
+        assert all(v == 127 for v in curve[idx:])
+```
+
+---
+
+## 10. Final Summary
+
+| Task               | Push 2                             | Push 3                    |
+| ------------------ | ---------------------------------- | ------------------------- |
+| LUT sending        | 8 messages, 16 values each         | 1 message, all 128 values |
+| Calibration needed | Yes, cpmin/cpmax via extra message | No, built into LUT        |
+| Complexity         | Higher                             | Lower                     |
+
+* **Push 2:** Two-step process -> calibration first, then curve data.
+* **Push 3:** One-step process -> one LUT with everything included.
