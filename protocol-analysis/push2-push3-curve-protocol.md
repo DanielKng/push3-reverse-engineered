@@ -1,5 +1,7 @@
 # Push 2 vs Push 3 - Pad Sensitivity Curve Documentation
 
+## ⚠️ This information is currently incorrect. I am working to correct it.
+
 This document explains how Ableton Push 2 and Push 3 handle pad sensitivity curves via SysEx.
 It details the differences between the two devices, including message formats, UI parameters, and migration strategies.
 
