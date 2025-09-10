@@ -93,6 +93,8 @@ def encrypt_push_frame(data):
     return bytes(encrypted)
 ```
 
+**Result:** Identical. Both devices use the same encryption.
+
 ---
 
 ## MIDI Protocol Comparison
@@ -184,9 +186,15 @@ PAD_MAPPING = {
     'top_right': 99      # D#6
 }
 ```
+---
 
-**Most** CC mappings are the same across the Push 2 and Push 3.
-However, more work needs to be done to list each one in comparison.
+#### Generally
+
+**Most** other CC mappings are the same across the Push 2 and Push 3.
+
+The Push 3 has more Buttons, so keep that in mind.
+
+More work needs to be done to list each CC mapping in comparison.
 
 ---
 
