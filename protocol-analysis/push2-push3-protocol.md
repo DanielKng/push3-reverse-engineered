@@ -201,7 +201,7 @@ However, more work needs to be done to list each one in comparison.
 def send_frame_push2_style(device, frame_data):
     header = FRAME_HEADER
     device.write(0x01, header)
-    
+    # Encrypt for push 2, same XOR Pattern
     # Small chunks (slower but compatible)
     for i in range(0, len(frame_data), 512):
         chunk = frame_data[i:i+512]
@@ -289,9 +289,8 @@ class UniversalPushMIDI:
 ### For Existing Push 2 Code
 
 1. **Minimal Changes** - Most code works unchanged.
-2. **Add Encryption** - Handle XOR encryption for Push 3.
-3. **Optimize Transfers** - Use larger chunks when possible.
-4. **Test Both Devices** - Verify compatibility.
+2. **Optimize Transfers** - Use larger chunks when possible.
+3. **Test Both Devices** - Verify compatibility.
 
 ---
 
