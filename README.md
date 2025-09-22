@@ -1,6 +1,6 @@
 # Push 3 Reverse Engineering Documentation
 
-This section contains comprehensive technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings.
+This section contains some technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings.
 
 Most of the *comparative* analysis is based on Ableton's official Push 2 documentation available on GitHub.
 Since I don't own a Push 2, all *comparisons* are derived from that documentation rather than direct hardware testing.
@@ -32,29 +32,3 @@ Since I don't own a Push 2, all *comparisons* are derived from that documentatio
   * `text_renderer.py` - Dynamic parameter display generation
   * `midi_monitor.py` - Real-time MIDI message monitoring and analysis
   * `midi_test.py` - LED control and MIDI functionality testing
-
-## Key Findings Summary
-
-### USB Display Protocol
-
-* **Resolution**: 960x160 pixels, RGB565 color format
-* **Frame Size**: 327,680 bytes (identical to Push 2)
-* **Encryption**: XOR pattern `[0xE7, 0xF3, 0xE7, 0xFF]`
-* **Performance**: 20-30ms frame updates (2-3x faster than Push 2)
-* **Transfer**: 16KB chunks vs 512B in Push 2
-
-### MIDI Control Protocol
-
-* **Compatibility**: Full Push 2 command compatibility
-* **Extensions**: New commands `0x38`, `0x3A`, `0x3E` for Push 3
-* **Device ID**: Same manufacturer/device ID as Push 2
-* **Handshake**: Identical device inquiry/response sequence
-
-## Research Methodology
-
-1. **USB Protocol Analysis**: Using Wireshark and USBPcap for traffic capture
-2. **MIDI Analysis**: MIDI Monitor and SysEx analysis tools
-3. **Hardware Testing**: Systematic button/encoder mapping with `midi_monitor.py`
-4. **Performance Testing**: Frame rate and latency measurements with `display_test.py`
-5. **LED Control Testing**: Visual feedback validation with `midi_test.py`
-6. **Display Prototyping**: Logic Pro interface mockups with `text_renderer.py`
