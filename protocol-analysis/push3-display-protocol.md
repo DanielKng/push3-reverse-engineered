@@ -1,313 +1,263 @@
-# Push 3 USB Display Protocol Analysis
+# Push 3 USB Display Protocol
 
-Comprehensive technical analysis of the Push 3 USB display communication protocol, including frame structure, encryption, and performance characteristics.
+### 1. Overview
 
-## Protocol Overview
-
-The Push 3 USB display protocol enables high-resolution graphics display on the device's 960 x 160 pixel screen. This analysis covers the complete communication stack from USB transfer to framebuffer rendering.
-
-### Key Specifications
-
-* **Resolution**: 960 x 160 pixels
-* **Color Format**: RGB565 (16-bit per pixel)
-* **Frame Size**: 327,680 bytes total
-* **Interface**: USB 2.0 Bulk Transfer
-* **Encryption**: XOR pattern encryption
-* **Performance**: 20-30ms per frame update
-
-## Frame Structure
-
-### Frame Header
-
-Every display frame begins with a 16-byte header:
-
-```
-Offset: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
-Data:   FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00
+```python
+OVERVIEW = {
+    "resolution": (960, 160),
+    "pixel_format": "RGB565 Little-Endian",
+    "frame_bytes_total": 327_680,   # 16 header + 327,664 framebuffer
+    "usb_interface": "USB 2.0 Bulk (OUT, ep 0x01)",
+    "encryption": "4-byte XOR pattern",
+    "typical_latency_ms": (20, 30),
+}
 ```
 
-**Header Analysis:**
+Header is sent unencrypted. Framebuffer is XOR-encrypted.
 
-* `FF CC AA 88`: Magic number/frame synchronization
-* Remaining 12 bytes: Reserved/padding (all zeros)
-* **Size**: 16 bytes
-* **Purpose**: Frame identification and protocol versioning
+---
 
-### Framebuffer Structure
+### 2. Frame Structure
 
-The framebuffer follows immediately after the header:
+#### 2.1 Layout
 
 ```
-Total Frame Size: 327,680 bytes
+327,680 bytes total
 ├── Header: 16 bytes
 └── Framebuffer: 327,664 bytes
-    ├── Line 0: 2,048 bytes (1,920 pixel data + 128 padding)
-    ├── Line 1: 2,048 bytes
-    ├── ...
-    └── Line 159: 2,048 bytes
+    ├── 160 lines × 2,048 bytes
+    │   ├── 1,920 bytes pixel data (960×2)
+    │   └── 128 bytes padding (zeros)
 ```
 
-### Line Structure
-
-Each display line contains pixel data plus padding:
-
-```
-Line Layout (2,048 bytes per line):
-├── Pixel Data: 1,920 bytes (960 pixels x 2 bytes/pixel)
-└── Padding: 128 bytes (all zeros)
-```
-
-**Pixel Format**: RGB565 Little-Endian
-
-* **Red**: 5 bits (bits 11-15)
-* **Green**: 6 bits (bits 5-10)
-* **Blue**: 5 bits (bits 0-4)
-
-```c
-// RGB565 pixel structure
-typedef struct {
-    uint16_t blue  : 5;
-    uint16_t green : 6;
-    uint16_t red   : 5;
-} rgb565_pixel;
-```
-
-## Encryption Analysis
-
-### XOR Pattern Encryption
-
-The Push 3 implements XOR encryption on the framebuffer data (excluding header):
+#### 2.2 Header
 
 ```python
-XOR_PATTERN = [0xE7, 0xF3, 0xE7, 0xFF]
-
-def encrypt_framebuffer(data):
-    """Apply XOR encryption to framebuffer data"""
-    encrypted = bytearray(data)
-    for i in range(len(encrypted)):
-        encrypted[i] ^= XOR_PATTERN[i % 4]
-    return bytes(encrypted)
+# 16-byte header:
+# 0..3   = FF CC AA 88  (magic/sync, fixed)
+# 4..15  = 00 ... 00    (payload currently zeroed)
+FRAME_HEADER = bytes.fromhex('FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00')
+assert len(FRAME_HEADER) == 16
 ```
 
-### Encryption Scope
+---
 
-* **Header**: Not encrypted (transmitted as-is)
-* **Framebuffer**: XOR encrypted with 4-byte repeating pattern
-* **Padding**: Encrypted (though contains only zeros)
+### 3. Encryption
 
-### Decryption Process
+Only the framebuffer (327,664 bytes) is encrypted. Header is not.
 
 ```python
-def decrypt_framebuffer(encrypted_data):
-    """Remove XOR encryption from framebuffer data"""
-    decrypted = bytearray(encrypted_data)
-    for i in range(len(decrypted)):
-        decrypted[i] ^= XOR_PATTERN[i % 4]
-    return bytes(decrypted)
+XOR_PATTERN = (0xE7, 0xF3, 0xE7, 0xFF)
+
+def encrypt_push_frame(data: bytes) -> bytes:
+    buf = bytearray(data)
+    for i in range(len(buf)):
+        buf[i] ^= XOR_PATTERN[i % 4]
+    return bytes(buf)
 ```
 
-## USB Transfer Protocol
+---
 
-### Device Identification
+### 4. USB Transfer
+
+#### 4.1 Identification
 
 ```python
-USB_VENDOR_ID = 0x2982    # Ableton
-USB_PRODUCT_ID = 0x1969   # Push 3
+USB_VENDOR_ID   = 0x2982
+USB_PRODUCT_ID  = 0x1969  # Push 3
+USB_ENDPOINT_OUT = 0x01
+USB_INTERFACE    = (0, 0)  # (bInterfaceNumber, bAlternateSetting)
 ```
 
-### Transfer Configuration
-
-* **Interface**: Bulk Transfer (Endpoint 0x01 OUT)
-* **Chunk Size**: 16,384 bytes (16KB)
-* **Total Chunks**: \~20 chunks per frame
-* **Transfer Direction**: Host -> Device (OUT)
-
-### Transfer Sequence
+#### 4.2 Transfer Settings
 
 ```python
-def send_frame_to_push3(device, frame_data):
-    """Send complete frame to Push 3 display"""
+PUSH3_CHUNK_SIZE = 16_384   # bytes per USB bulk write
+PUSH3_TARGET_FPS = 30       # frames per second
 
-    # 1. Send frame header
-    header = bytes([0xFF, 0xCC, 0xAA, 0x88] + [0x00] * 12)
-    device.write(0x01, header)
-
-    # 2. Encrypt framebuffer
-    encrypted = encrypt_framebuffer(frame_data)
-
-    # 3. Send in 16KB chunks
-    chunk_size = 16384
-    for i in range(0, len(encrypted), chunk_size):
-        chunk = encrypted[i:i + chunk_size]
-        device.write(0x01, chunk)
+# If you use optimize_for_device('push3'), these match:
+assert optimize_for_device('push3')['chunk_size'] == PUSH3_CHUNK_SIZE
+assert optimize_for_device('push3')['target_fps'] == PUSH3_TARGET_FPS
 ```
 
-## Performance Analysis
+---
 
-### Transfer Timing
-
-* **Frame Preparation**: <1ms (image conversion and encryption)
-* **USB Transfer**: 15-25ms (dependent on USB bus load)
-* **Display Update**: <5ms (hardware processing)
-* **Total Latency**: 20-30ms per frame
-
-### Optimization Strategies
-
-#### 1. Chunk Size Optimization
+### 5. Configuration
+From **[Push2-Push3-Protocol.md](push2-push3-protocol.md)**
 
 ```python
-# Push 3 supports large chunks (major improvement over Push 2)
-OPTIMAL_CHUNK_SIZE = 16384  # 16KB chunks
-# vs Push 2: 512 bytes (32x improvement)
+# Shared frame header
+FRAME_HEADER = bytes.fromhex('FF CC AA 88 00 00 00 00 00 00 00 00 00 00 00 00')
+
+# Push 3 SysEx "Extensions" (not used by the display path, kept for consistency)
+PUSH3_EXTENSIONS = {
+    0x38: "RGB LED Control",
+    0x3A: "Aftertouch Mode",
+    0x3E: "Custom Feature TBD",
+}
+PUSH3_CMD_RGB_LED, PUSH3_CMD_AFTERTOUCH_MODE, PUSH3_CMD_CUSTOM = tuple(PUSH3_EXTENSIONS.keys())
+
+def optimize_for_device(device_type):
+    configs = {
+        'push2': {
+            'device': 'push2',
+            'usb_endpoint': 0x01,
+            'header': FRAME_HEADER,
+            'encryption': True,
+            'sysex_compatible': True,
+            'midi_extensions': False,
+            'extensions': {},
+            'chunk_size': 512,
+            'target_fps': 15,
+        },
+        'push3': {
+            'device': 'push3',
+            'usb_endpoint': 0x01,
+            'header': FRAME_HEADER,
+            'encryption': True,
+            'sysex_compatible': True,
+            'midi_extensions': True,
+            'extensions': PUSH3_EXTENSIONS,
+            'chunk_size': 16_384,
+            'target_fps': 30,
+        },
+    }
+    return configs.get(device_type, configs['push2'])
 ```
 
-#### 2. Selective Updates
+---
+
+## 6. Display Layer
+
+Sends header once, encrypts framebuffer, respects `chunk_size` and `target_fps` from `optimize_for_device()`.
 
 ```python
-def update_dirty_regions(old_frame, new_frame):
-    """Only update changed regions to reduce transfer time"""
-    dirty_lines = []
-    for line_num in range(160):
-        old_line = get_line_data(old_frame, line_num)
-        new_line = get_line_data(new_frame, line_num)
-        if old_line != new_line:
-            dirty_lines.append(line_num)
-    return dirty_lines
+import time
+
+class UniversalPushDisplay:
+    def __init__(self, device_type, device):
+        self.device = device
+        self.cfg = optimize_for_device(device_type)
+
+    def send_frame(self, framebuffer: bytes):
+        t0 = time.perf_counter()
+
+        # Header (16 bytes, unencrypted)
+        self.device.write(self.cfg['usb_endpoint'], self.cfg['header'])
+
+        # Encrypt framebuffer if enabled
+        data = encrypt_push_frame(framebuffer) if self.cfg['encryption'] else framebuffer
+
+        # Chunked transfer
+        step = self.cfg['chunk_size']
+        for i in range(0, len(data), step):
+            chunk = data[i:i+step]
+            self.device.write(self.cfg['usb_endpoint'], chunk, timeout=1000)
+
+        # Throttle to target_fps
+        budget = 1.0 / float(self.cfg['target_fps'])
+        elapsed = time.perf_counter() - t0
+        sleep = budget - elapsed
+        if sleep > 0:
+            time.sleep(sleep)
 ```
 
-#### 3. Frame Rate Control
+---
 
-```python
-def maintain_framerate(target_fps=30):
-    """Maintain consistent frame rate for smooth animation"""
-    frame_time = 1.0 / target_fps  # 33.33ms for 30 FPS
-    # Transfer time (~25ms) + processing time (~5ms) = ~30ms
-    # Natural frame rate limitation around 30-35 FPS
-```
+## 7. Image Preparation
 
-## Color Space and Conversion
-
-### RGB888 to RGB565 Conversion
+RGB888 → RGB565, line padding (128 bytes/line).
 
 ```python
 import struct
+from PIL import Image
 
-def rgb888_to_rgb565(r, g, b):
-    """Convert 24-bit RGB to 16-bit RGB565"""
+def rgb888_to_rgb565(r: int, g: int, b: int) -> int:
     r5 = (r >> 3) & 0x1F
     g6 = (g >> 2) & 0x3F
     b5 = (b >> 3) & 0x1F
     return (r5 << 11) | (g6 << 5) | b5
 
-def rgb565_to_bytes(rgb565):
-    """Convert RGB565 value to little-endian bytes"""
-    return struct.pack('<H', rgb565)
-```
+def rgb565_to_bytes(v: int) -> bytes:
+    return struct.pack('<H', v)  # little-endian
 
-### Image Processing Pipeline
-
-```python
-from PIL import Image
-
-def prepare_image_for_push3(image_path):
-    """Complete image processing pipeline"""
-
-    # 1. Load and resize image
-    img = Image.open(image_path)
-    img = img.resize((960, 160), Image.LANCZOS)
-    img = img.convert('RGB')
-
-    # 2. Convert to RGB565 framebuffer
-    framebuffer = bytearray()
+def prepare_image_for_push3(path: str) -> bytes:
+    img = Image.open(path).resize((960, 160), Image.LANCZOS).convert('RGB')
+    fb = bytearray()
     for y in range(160):
-        line_data = bytearray()
+        line = bytearray()
         for x in range(960):
             r, g, b = img.getpixel((x, y))
-            rgb565 = rgb888_to_rgb565(r, g, b)
-            line_data.extend(rgb565_to_bytes(rgb565))
-
-        # Add line padding
-        line_data.extend(bytes(128))  # 128 zero bytes
-        framebuffer.extend(line_data)
-
-    return bytes(framebuffer)
+            line += rgb565_to_bytes(rgb888_to_rgb565(r, g, b))
+        line += bytes(128)  # padding per line
+        fb += line
+    assert len(fb) == 327_664, "Invalid framebuffer size"
+    return bytes(fb)
 ```
 
-## Implementation Example
+---
 
-### Complete Display Controller
+## 8. Connect to Display and Push Data
 
 ```python
 import usb.core
 import usb.util
-from PIL import Image
 
-class Push3Display:
-    def __init__(self):
-        self.device = usb.core.find(idVendor=0x2982, idProduct=0x1969)
-        if not self.device:
-            raise RuntimeError("Push 3 not found")
+USB_VENDOR_ID   = 0x2982
+USB_PRODUCT_ID  = 0x1969
+USB_ENDPOINT_OUT = 0x01
+USB_INTERFACE    = (0, 0)
 
-        # Configure device
-        self.device.set_configuration()
+def connect_display():
+    dev = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
+    if not dev:
+        raise RuntimeError("Push 3 not found")
+    dev.set_configuration()
+    cfg = dev.get_active_configuration()
+    intf = cfg[USB_INTERFACE]
+    usb.util.claim_interface(dev, intf.bInterfaceNumber)
+    return dev
 
-    def display_image(self, image_path):
-        """Display image on Push 3 screen"""
-
-        # Prepare frame data
-        framebuffer = self.prepare_image(image_path)
-
-        # Send frame header
-        header = bytes([0xFF, 0xCC, 0xAA, 0x88] + [0x00] * 12)
-        self.device.write(0x01, header)
-
-        # Encrypt and send framebuffer
-        encrypted = self.encrypt_framebuffer(framebuffer)
-
-        chunk_size = 16384
-        for i in range(0, len(encrypted), chunk_size):
-            chunk = encrypted[i:i + chunk_size]
-            self.device.write(0x01, chunk)
-
-    def prepare_image(self, image_path):
-        return prepare_image_for_push3(image_path)
-
-    def encrypt_framebuffer(self, data):
-        """Apply XOR encryption"""
-        xor_pattern = [0xE7, 0xF3, 0xE7, 0xFF]
-        encrypted = bytearray(data)
-        for i in range(len(encrypted)):
-            encrypted[i] ^= xor_pattern[i % 4]
-        return bytes(encrypted)
+# Example usage (Push 3)
+device_type = 'push3'
+cfg = optimize_for_device(device_type)                 # from section 5
+dev = connect_display()
+display = UniversalPushDisplay(device_type, dev)       # from section 6
+framebuffer = prepare_image_for_push3('image.png')     # from section 7
+display.send_frame(framebuffer)                        # uses cfg['chunk_size'], cfg['target_fps']
 ```
 
-## Troubleshooting
+---
 
-### Common Issues
-
-#### 1. Device Not Found
+## 9. Performance
 
 ```python
-# Check USB connection and permissions
-devices = usb.core.find(find_all=True, idVendor=0x2982)
-for device in devices:
-    print(f"Found device: {device.idProduct:04x}")
+PERF = {
+    "frame_prep_ms": "< 1",
+    "usb_transfer_ms": "15–25",
+    "display_update_ms": "< 5",
+    "total_frame_ms": "20–30",
+}
 ```
 
-#### 2. Transfer Errors
+---
+
+## 10. Troubleshooting
 
 ```python
-# Handle USB transfer timeouts
-try:
-    device.write(0x01, data, timeout=1000)
-except usb.core.USBTimeoutError:
-    print("Transfer timeout - check USB connection")
+# Validate sizes
+assert len(FRAME_HEADER) == 16
+assert len(framebuffer) == 327_664
+assert len(encrypt_push_frame(framebuffer)) == 327_664
+
+# Endpoint and interface
+assert USB_ENDPOINT_OUT == 0x01
+# Ensure interface is claimed via pyusb before writing.
 ```
 
-#### 3. Display Corruption
+Common checks:
 
-```python
-# Verify frame size and encryption
-assert len(framebuffer) == 327664, "Invalid framebuffer size"
-assert len(encrypted_data) == len(framebuffer), "Encryption error"
-```
+* Device connected and accessible (permissions, udev/driver).
+* Use endpoint `0x01` (OUT).
+* Send header once per frame, then the encrypted framebuffer.
+* Respect `chunk_size` and `target_fps` from `optimize_for_device()`.
