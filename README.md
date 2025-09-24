@@ -1,11 +1,4 @@
-# Push 3 Reverse Engineering Documentation
-
-This section contains some technical documentation of the Ableton Push 3 hardware interface, communication protocols, and control mappings.
-
-Most of the *comparative* analysis is based on Ableton's official Push 2 documentation available on GitHub.
-Since I don't own a Push 2, all *comparisons* are derived from that documentation rather than direct hardware testing.
-
-## Documentation Overview
+# Documentation Overview
 
 ### Protocol Analysis
 
