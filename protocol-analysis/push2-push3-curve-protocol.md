@@ -1,9 +1,7 @@
-# Push 2 vs Push 3 - Pad Sensitivity Curve Documentation
-
 This document explains how Push 2 and Push 3 handle pad sensitivity curves.  
 It covers **message formats**, **curve generation**, and **working code** for both devices.
 
-The general information in this document is based on the GitHub project https://github.com/git-moss/DrivenByMoss.
+The general information in this document is based on the GitHub project **[DrivenByMoss](https://github.com/git-moss/DrivenByMoss)**.
 
 ---
 
